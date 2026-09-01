@@ -1,0 +1,267 @@
+:root {
+  --ink: #3a2f2a;
+  --muted: #7a6b60;
+  --paper: #fffdf8;
+  --cream: #f6ecd8;
+  --aida: #f3e6c9;
+  --line: #eadbc3;
+  --coral: #d45b4a;
+  --coral-dark: #b9483a;
+  --coral-soft: #f3cfc8;
+  --shadow: 0 10px 30px rgba(90, 50, 40, 0.08);
+  --radius: 18px;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: "Nunito", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(1200px 400px at 50% -80px, #fff7ea 0%, var(--paper) 55%);
+  min-height: 100dvh;
+}
+
+.page { max-width: 980px; margin: 0 auto; padding: 20px 20px 64px; }
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0 18px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-size: 1.1rem;
+}
+.lang {
+  min-width: 48px;
+  min-height: 44px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--ink);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.mark .mark-bg { fill: var(--cream); stroke: var(--line); }
+.mark .mark-x {
+  stroke: var(--coral);
+  stroke-width: 4.2;
+  stroke-linecap: round;
+  fill: none;
+}
+.mark .mark-dot { fill: var(--coral-dark); }
+
+.hero {
+  text-align: center;
+  padding: 28px 8px 12px;
+}
+.hero h1 {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(2.2rem, 6vw, 3.4rem);
+  margin: 12px 0 8px;
+  letter-spacing: -0.03em;
+}
+.bio {
+  max-width: 34rem;
+  margin: 0 auto 22px;
+  color: var(--muted);
+  font-size: 1.12rem;
+  line-height: 1.5;
+}
+
+.cta-row, .actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+
+.btn {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  min-height: 48px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 800;
+  font-size: 1rem;
+}
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.primary {
+  background: var(--coral);
+  color: white;
+  box-shadow: 0 8px 18px rgba(212, 91, 74, 0.28);
+}
+.btn.primary:hover:not(:disabled) { background: var(--coral-dark); }
+.btn.ghost {
+  background: white;
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.examples { padding: 28px 0 8px; }
+.example-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.example-tile {
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  background: var(--aida);
+  border-radius: var(--radius);
+  overflow: hidden;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.example-tile canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.example-tile span {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  background: rgba(255, 253, 248, 0.92);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.studio {
+  margin-top: 36px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  padding: 22px 20px 28px;
+  box-shadow: var(--shadow);
+}
+.studio h2 {
+  font-family: "Fraunces", Georgia, serif;
+  margin: 0 0 18px;
+  font-size: 1.7rem;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+@media (min-width: 720px) {
+  .controls { grid-template-columns: 1.3fr 1fr 1fr auto; align-items: end; }
+}
+
+.upload { display: flex; flex-direction: column; gap: 8px; }
+.upload input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.hint { color: var(--muted); font-size: 0.9rem; }
+
+fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+fieldset legend {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.seg { display: flex; background: var(--cream); border-radius: 999px; padding: 4px; }
+.seg button {
+  flex: 1;
+  min-height: 44px;
+  min-width: 48px;
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  color: var(--ink);
+}
+.seg button.on { background: white; color: var(--coral-dark); box-shadow: 0 2px 8px rgba(80,40,30,0.08); }
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.toggle input { width: 22px; height: 22px; accent-color: var(--coral); }
+
+.actions { justify-content: flex-start; margin: 18px 0 16px; }
+
+.preview-wrap {
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 7px, rgba(180,150,110,0.08) 8px),
+    repeating-linear-gradient(90deg, transparent, transparent 7px, rgba(180,150,110,0.08) 8px),
+    var(--aida);
+  border-radius: 18px;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 16px;
+}
+.preview-wrap.busy { opacity: 0.65; }
+.preview { display: block; max-width: 100%; height: auto; border-radius: 8px; }
+.empty { color: var(--muted); text-align: center; padding: 24px; }
+
+.legend { margin-top: 22px; }
+.legend h3 { margin: 0 0 10px; font-family: "Fraunces", Georgia, serif; }
+.legend ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.legend li {
+  display: grid;
+  grid-template-columns: 28px 28px 110px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--paper);
+  min-height: 44px;
+}
+.swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  display: inline-block;
+}
+.sym { font-size: 1.1rem; text-align: center; }
+.code { font-weight: 800; }
+.name { color: var(--muted); }
+.count { color: var(--muted); font-size: 0.9rem; }
+
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 36px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+@media (max-width: 700px) {
+  .example-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .legend li { grid-template-columns: 28px 24px 1fr; grid-template-rows: auto auto; }
+  .legend .name { grid-column: 3; }
+  .legend .count { grid-column: 1 / -1; }
+}

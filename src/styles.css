@@ -1,15 +1,16 @@
 :root {
   --ink: #3a2f2a;
-  --muted: #7a6b60;
-  --paper: #fffdf8;
-  --cream: #f6ecd8;
-  --aida: #f3e6c9;
-  --line: #eadbc3;
-  --coral: #d45b4a;
-  --coral-dark: #b9483a;
+  --muted: #8a746c;
+  --paper: #fffaf7;
+  --cream: #f8ece4;
+  --blush: #f7ddd6;
+  --aida: #f6e4dc;
+  --line: #f0ddd4;
+  --coral: #e07a68;
+  --coral-dark: #c85d4e;
   --coral-soft: #f3cfc8;
-  --shadow: 0 10px 30px rgba(90, 50, 40, 0.08);
-  --radius: 18px;
+  --shadow: 0 12px 32px rgba(180, 90, 80, 0.08);
+  --radius: 20px;
 }
 
 * { box-sizing: border-box; }
@@ -19,7 +20,7 @@ body {
   font-family: "Nunito", "Segoe UI", sans-serif;
   color: var(--ink);
   background:
-    radial-gradient(1200px 400px at 50% -80px, #fff7ea 0%, var(--paper) 55%);
+    radial-gradient(1100px 420px at 50% -90px, #fff4ee 0%, var(--paper) 58%);
   min-height: 100dvh;
 }
 
@@ -52,14 +53,10 @@ body {
   cursor: pointer;
 }
 
-.mark .mark-bg { fill: var(--cream); stroke: var(--line); }
-.mark .mark-x {
-  stroke: var(--coral);
-  stroke-width: 4.2;
-  stroke-linecap: round;
-  fill: none;
-}
-.mark .mark-dot { fill: var(--coral-dark); }
+.mark .mark-bg { fill: #fff7f3; stroke: var(--line); }
+.mark .mark-tile.a { fill: #f3c4bc; }
+.mark .mark-tile.b { fill: #e07a68; }
+.mark .mark-tile.c { fill: #f6e4dc; }
 
 .hero {
   text-align: center;
@@ -97,7 +94,7 @@ body {
 .btn.primary {
   background: var(--coral);
   color: white;
-  box-shadow: 0 8px 18px rgba(212, 91, 74, 0.28);
+  box-shadow: 0 8px 18px rgba(224, 122, 104, 0.28);
 }
 .btn.primary:hover:not(:disabled) { background: var(--coral-dark); }
 .btn.ghost {
@@ -135,7 +132,7 @@ body {
   position: absolute;
   left: 10px;
   bottom: 10px;
-  background: rgba(255, 253, 248, 0.92);
+  background: rgba(255, 250, 247, 0.94);
   padding: 6px 12px;
   border-radius: 999px;
   font-weight: 800;
@@ -162,7 +159,7 @@ body {
   gap: 16px;
 }
 @media (min-width: 720px) {
-  .controls { grid-template-columns: 1.3fr 1fr 1fr auto; align-items: end; }
+  .controls { grid-template-columns: 1.4fr 1fr 1fr; align-items: end; }
 }
 
 .upload { display: flex; flex-direction: column; gap: 8px; }
@@ -195,59 +192,108 @@ fieldset legend {
 }
 .seg button.on { background: white; color: var(--coral-dark); box-shadow: 0 2px 8px rgba(80,40,30,0.08); }
 
-.toggle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 48px;
-  font-weight: 800;
-  cursor: pointer;
+.preview-stage {
+  position: relative;
+  margin-top: 22px;
 }
-.toggle input { width: 22px; height: 22px; accent-color: var(--coral); }
-
-.actions { justify-content: flex-start; margin: 18px 0 16px; }
+.preview-stage.busy { opacity: 0.65; }
+.preview-tools {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+.icon-btn.on {
+  background: var(--blush);
+  color: var(--coral-dark);
+  border-color: var(--coral-soft);
+}
+.icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .preview-wrap {
   background:
-    repeating-linear-gradient(0deg, transparent, transparent 7px, rgba(180,150,110,0.08) 8px),
-    repeating-linear-gradient(90deg, transparent, transparent 7px, rgba(180,150,110,0.08) 8px),
-    var(--aida);
-  border-radius: 18px;
-  min-height: 220px;
+    radial-gradient(800px 240px at 50% 0%, #fff6f1 0%, var(--cream) 70%);
+  border-radius: 22px;
+  min-height: 280px;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: auto;
-  padding: 16px;
+  padding: 18px;
+  border: 1px solid var(--line);
 }
-.preview-wrap.busy { opacity: 0.65; }
-.preview { display: block; max-width: 100%; height: auto; border-radius: 8px; }
+.preview { display: block; height: auto; border-radius: 10px; }
 .empty { color: var(--muted); text-align: center; padding: 24px; }
 
-.legend { margin-top: 22px; }
-.legend h3 { margin: 0 0 10px; font-family: "Fraunces", Georgia, serif; }
-.legend ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.legend li {
-  display: grid;
-  grid-template-columns: 28px 28px 110px 1fr auto;
+.swatch-row {
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
-  align-items: center;
-  padding: 8px 10px;
-  border-radius: 12px;
-  background: var(--paper);
-  min-height: 44px;
+  justify-content: center;
+  margin: 18px 0 8px;
 }
-.swatch {
+.dot {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px rgba(80, 40, 30, 0.12);
+  cursor: pointer;
+  padding: 0;
+}
+.dot.on {
+  box-shadow: 0 0 0 3px var(--coral);
+  transform: scale(1.08);
+}
+
+.legend { margin-top: 16px; }
+.legend h3 { margin: 0 0 10px; font-family: "Fraunces", Georgia, serif; }
+.legend ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.legend li {
+  display: grid;
+  grid-template-columns: auto 22px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: var(--paper);
+  min-height: 40px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.legend li.on { border-color: var(--coral-soft); background: #fff4f0; }
+.swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
   border: 1px solid var(--line);
   display: inline-block;
 }
-.sym { font-size: 1.1rem; text-align: center; }
-.code { font-weight: 800; }
-.name { color: var(--muted); }
-.count { color: var(--muted); font-size: 0.9rem; }
+.code { font-weight: 800; font-size: 0.92rem; }
+.name { color: var(--muted); font-size: 0.9rem; }
+.count { color: var(--muted); font-size: 0.9rem; font-weight: 800; }
+
+.actions { justify-content: flex-start; margin: 18px 0 0; }
 
 footer {
   display: flex;
@@ -261,7 +307,5 @@ footer {
 
 @media (max-width: 700px) {
   .example-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .legend li { grid-template-columns: 28px 24px 1fr; grid-template-rows: auto auto; }
-  .legend .name { grid-column: 3; }
-  .legend .count { grid-column: 1 / -1; }
+  .legend li { grid-template-columns: auto 18px 1fr auto; }
 }

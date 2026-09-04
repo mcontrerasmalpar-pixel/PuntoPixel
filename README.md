@@ -26,7 +26,7 @@ Preview the production build with `npm run preview`.
 
 - Landing page with three built-in example motifs (heart, flower, bird) as glossy 3D tiles
 - Studio: upload `image/*`, or **Plantilla vacía** for an empty AIDA grid
-- Independent **Ancho** / **Alto** (8–80 each) with presets + number inputs
+- Independent **Ancho** / **Alto** (8-80 each) with presets + number inputs
 - Photo mode still supports 8 / 16 / 24 / 32 color quantization
 - Median-cut quantization, then snap to a built-in DMC-like palette
 - Two previews: TILES (glossy 3D tiles) and CHART (codes, numbered axes, orange guides every 10)

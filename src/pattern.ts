@@ -1,4 +1,4 @@
-/** Re-exports blank-paint pattern APIs (createBlankPattern lives in pattern_core). */
+/** Re-exports blank-paint pattern APIs. */
 export {
   createBlankPattern,
   type Pattern,
@@ -30,9 +30,11 @@ export {
   chartCanvasSize,
   drawChartPreview,
   renderPatternToCanvas,
+} from "./pattern_draw";
+export {
   exampleHeart,
   exampleFlower,
   exampleBird,
   EXAMPLES,
   printChartHtml,
-} from "./pattern_ui";
+} from "./pattern_examples";

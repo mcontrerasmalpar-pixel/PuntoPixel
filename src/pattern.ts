@@ -1,1 +1,1 @@
-file:///workspace/PuntoPixel/src/pattern.ts
+PLACEHOLDER

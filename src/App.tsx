@@ -1,19 +1,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Floss } from "./palette";
+import { PALETTE } from "./palette";
 import {
   EXAMPLES,
   type Pattern,
   type PreviewKind,
+  DIM_MAX,
+  DIM_MIN,
   chartCanvasSize,
+  clampDim,
+  createBlankPattern,
   drawChartPreview,
   drawTilePreview,
+  hitTestCell,
   imageToPattern,
   loadImageFile,
+  paintCell,
   printChartHtml,
   renderPatternToCanvas,
   tilePad,
 } from "./pattern";
 
 type Lang = "es" | "en";
+type StudioTool = "highlight" | "paint" | "erase";
 
 const COPY = {
   es: {
@@ -23,18 +32,27 @@ const COPY = {
     studio: "Estudio",
     upload: "Subir imagen",
     drop: "Arrastra una foto o elige un archivo",
-    longSide: "Lado largo",
+    width: "Ancho",
+    height: "Alto",
     colors: "Colores",
     exportPng: "Exportar PNG",
     print: "Imprimir",
     reset: "Reiniciar",
     legend: "Leyenda",
-    empty: "Sube una imagen o elige un ejemplo para ver el mosaico.",
+    empty: "Sube una imagen, crea una plantilla vacía o elige un ejemplo.",
     langToggle: "EN",
     preview: "Vista previa",
     tiles: "Azulejos",
     chart: "Gráfico",
     share: "Compartir",
+    blank: "Plantilla vacía",
+    paint: "Pintar",
+    erase: "Borrar",
+    highlight: "Resaltar",
+    paintHint: "Elige un color y toca las celdas del gráfico o mosaico.",
+    eraseHint: "Toca celdas para volver a tela AIDA.",
+    paintPalette: "Paleta para pintar",
+    cells: "celdas",
   },
   en: {
     bio: "Turn your photos into glossy tile mosaics and bead charts, ready to make.",
@@ -43,23 +61,44 @@ const COPY = {
     studio: "Studio",
     upload: "Upload image",
     drop: "Drop a photo or choose a file",
-    longSide: "Long side",
+    width: "Width",
+    height: "Height",
     colors: "Colors",
     exportPng: "Export PNG",
     print: "Print",
     reset: "Reset",
     legend: "Legend",
-    empty: "Upload an image or pick an example to see the tile mosaic.",
+    empty: "Upload an image, create a blank template, or pick an example.",
     langToggle: "ES",
     preview: "Preview",
     tiles: "Tiles",
     chart: "Chart",
     share: "Share",
+    blank: "Blank template",
+    paint: "Paint",
+    erase: "Erase",
+    highlight: "Highlight",
+    paintHint: "Pick a color, then tap cells on the chart or tiles.",
+    eraseHint: "Tap cells to restore AIDA cloth.",
+    paintPalette: "Paint palette",
+    cells: "cells",
   },
 };
 
-const SIZES = [32, 48, 64, 80] as const;
+const SIZE_PRESETS = [16, 24, 32, 48, 64, 80] as const;
 const COLOR_COUNTS = [8, 16, 24, 32] as const;
+
+/** Curated DMC-like chips for blank painting (still honest palette). */
+const PAINT_CODES = [
+  "321", "666", "3328", "608", "444", "907", "911", "825",
+  "340", "552", "335", "310", "B5200", "414", "433", "738",
+] as const;
+
+const PAINT_FLOSS: Floss[] = PAINT_CODES.map((code) => {
+  const f = PALETTE.find((p) => p.code === code);
+  if (!f) throw new Error(`Missing paint floss ${code}`);
+  return f;
+});
 
 function Mark({ size = 36 }: { size?: number }) {
   return (
@@ -120,6 +159,45 @@ function IconPrint() {
   );
 }
 
+function DimField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (n: number) => void;
+}) {
+  return (
+    <fieldset className="dim-field">
+      <legend>{label}</legend>
+      <div className="dim-controls">
+        <div className="seg compact">
+          {SIZE_PRESETS.map((n) => (
+            <button
+              key={n}
+              type="button"
+              className={n === value ? "on" : ""}
+              onClick={() => onChange(n)}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+        <input
+          className="dim-input"
+          type="number"
+          min={DIM_MIN}
+          max={DIM_MAX}
+          value={value}
+          aria-label={label}
+          onChange={(e) => onChange(clampDim(Number(e.target.value)))}
+        />
+      </div>
+    </fieldset>
+  );
+}
+
 function ExampleTile({
   pattern,
   title,
@@ -153,13 +231,19 @@ export default function App() {
   const [lang, setLang] = useState<Lang>("es");
   const t = COPY[lang];
   const [source, setSource] = useState<HTMLImageElement | null>(null);
-  const [longSide, setLongSide] = useState<(typeof SIZES)[number]>(48);
+  const [width, setWidth] = useState(30);
+  const [height, setHeight] = useState(25);
   const [colorCount, setColorCount] = useState<(typeof COLOR_COUNTS)[number]>(16);
-  const [mode, setMode] = useState<PreviewKind>("tiles");
+  const [mode, setMode] = useState<PreviewKind>("chart");
+  const [tool, setTool] = useState<StudioTool>("highlight");
+  const [paintFloss, setPaintFloss] = useState<Floss | null>(null);
   const [highlight, setHighlight] = useState<number | null>(null);
   const [pattern, setPattern] = useState<Pattern | null>(null);
   const [busy, setBusy] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const cellRef = useRef(18);
+  const paintingRef = useRef(false);
+  const lastPaintRef = useRef<string | null>(null);
   const studioRef = useRef<HTMLElement>(null);
   const examplesRef = useRef<HTMLElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -170,12 +254,12 @@ export default function App() {
   );
 
   const recompute = useCallback(
-    (img: HTMLImageElement, side: number, colors: number) => {
+    (img: HTMLImageElement, w: number, h: number, colors: number) => {
       setBusy(true);
       setHighlight(null);
       requestAnimationFrame(() => {
         try {
-          setPattern(imageToPattern(img, side, colors));
+          setPattern(imageToPattern(img, w, h, colors));
         } finally {
           setBusy(false);
         }
@@ -186,8 +270,8 @@ export default function App() {
 
   useEffect(() => {
     if (!source) return;
-    recompute(source, longSide, colorCount);
-  }, [source, longSide, colorCount, recompute]);
+    recompute(source, width, height, colorCount);
+  }, [source, width, height, colorCount, recompute]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -198,19 +282,21 @@ export default function App() {
     if (mode === "chart") {
       const fitted = Math.floor((maxW - 56) / pattern.width);
       const cell = Math.max(18, fitted);
+      cellRef.current = cell;
       const size = chartCanvasSize(pattern, cell);
       canvas.width = size.width;
       canvas.height = size.height;
-      drawChartPreview(ctx, pattern, cell, highlight);
+      drawChartPreview(ctx, pattern, cell, tool === "highlight" ? highlight : null);
     } else {
       const fitted = Math.floor((maxW - 24) / pattern.width);
       const cell = Math.max(8, fitted);
+      cellRef.current = cell;
       const pad = tilePad(cell);
       canvas.width = pattern.width * cell + pad * 2;
       canvas.height = pattern.height * cell + pad * 2;
-      drawTilePreview(ctx, pattern, cell, highlight);
+      drawTilePreview(ctx, pattern, cell, tool === "highlight" ? highlight : null);
     }
-  }, [pattern, mode, highlight]);
+  }, [pattern, mode, highlight, tool]);
 
   const goStudio = () => {
     studioRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -220,6 +306,19 @@ export default function App() {
     if (!file || !file.type.startsWith("image/")) return;
     const img = await loadImageFile(file);
     setSource(img);
+    setTool("highlight");
+    setPaintFloss(null);
+    goStudio();
+  };
+
+  const createBlank = () => {
+    setSource(null);
+    setPattern(createBlankPattern(width, height));
+    setHighlight(null);
+    setMode("chart");
+    setTool("paint");
+    setPaintFloss(PAINT_FLOSS[0]);
+    if (fileRef.current) fileRef.current.value = "";
     goStudio();
   };
 
@@ -229,7 +328,12 @@ export default function App() {
       mode === "chart"
         ? Math.max(18, Math.min(24, Math.floor(1400 / pattern.width)))
         : Math.max(10, Math.min(22, Math.floor(1600 / pattern.width)));
-    const off = renderPatternToCanvas(pattern, cell, mode, highlight);
+    const off = renderPatternToCanvas(
+      pattern,
+      cell,
+      mode,
+      tool === "highlight" ? highlight : null,
+    );
     off.toBlob((blob) => {
       if (!blob) return;
       const a = document.createElement("a");
@@ -252,8 +356,11 @@ export default function App() {
     setSource(null);
     setPattern(null);
     setHighlight(null);
-    setMode("tiles");
-    setLongSide(48);
+    setMode("chart");
+    setTool("highlight");
+    setPaintFloss(null);
+    setWidth(30);
+    setHeight(25);
     setColorCount(16);
     if (fileRef.current) fileRef.current.value = "";
   };
@@ -262,12 +369,69 @@ export default function App() {
     setSource(null);
     setPattern(p);
     setHighlight(null);
+    setTool("highlight");
+    setPaintFloss(null);
     goStudio();
   };
 
-  const toggleColor = (i: number) => {
+  const selectLegendColor = (i: number) => {
+    if (!pattern) return;
+    if (tool === "paint") {
+      const f = pattern.palette[i];
+      setPaintFloss((cur) => (cur && cur.code === f.code ? null : f));
+      return;
+    }
+    if (tool === "erase") {
+      setTool("highlight");
+    }
     setHighlight((cur) => (cur === i ? null : i));
   };
+
+  const applyPaintAt = (clientX: number, clientY: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !pattern) return;
+    if (tool !== "paint" && tool !== "erase") return;
+    if (tool === "paint" && !paintFloss) return;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const px = ((clientX - rect.left) / rect.width) * canvas.width;
+    const py = ((clientY - rect.top) / rect.height) * canvas.height;
+    const hit = hitTestCell(pattern, mode, cellRef.current, px, py);
+    if (!hit) return;
+    const key = `${hit.x},${hit.y}`;
+    if (lastPaintRef.current === key) return;
+    lastPaintRef.current = key;
+    const floss = tool === "erase" ? null : paintFloss;
+    setPattern((prev) => (prev ? paintCell(prev, hit.x, hit.y, floss) : prev));
+  };
+
+  const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (tool !== "paint" && tool !== "erase") return;
+    e.preventDefault();
+    paintingRef.current = true;
+    lastPaintRef.current = null;
+    (e.target as HTMLCanvasElement).setPointerCapture(e.pointerId);
+    applyPaintAt(e.clientX, e.clientY);
+  };
+
+  const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!paintingRef.current) return;
+    e.preventDefault();
+    applyPaintAt(e.clientX, e.clientY);
+  };
+
+  const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    paintingRef.current = false;
+    lastPaintRef.current = null;
+    try {
+      (e.target as HTMLCanvasElement).releasePointerCapture(e.pointerId);
+    } catch {
+      /* already released */
+    }
+  };
+
+  const paintCursor =
+    tool === "paint" || tool === "erase" ? "preview paint-cursor" : "preview";
 
   return (
     <div className="page">
@@ -338,21 +502,12 @@ export default function App() {
             <span className="hint">{t.drop}</span>
           </label>
 
-          <fieldset>
-            <legend>{t.longSide}</legend>
-            <div className="seg">
-              {SIZES.map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  className={n === longSide ? "on" : ""}
-                  onClick={() => setLongSide(n)}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
-          </fieldset>
+          <button type="button" className="btn ghost blank-btn" onClick={createBlank}>
+            {t.blank}
+          </button>
+
+          <DimField label={t.width} value={width} onChange={setWidth} />
+          <DimField label={t.height} value={height} onChange={setHeight} />
 
           <fieldset>
             <legend>{t.colors}</legend>
@@ -363,6 +518,8 @@ export default function App() {
                   type="button"
                   className={n === colorCount ? "on" : ""}
                   onClick={() => setColorCount(n)}
+                  disabled={!source}
+                  title={!source ? t.blank : undefined}
                 >
                   {n}
                 </button>
@@ -393,6 +550,44 @@ export default function App() {
             </button>
             <button
               type="button"
+              className={`tool-btn ${tool === "highlight" ? "on" : ""}`}
+              disabled={!pattern}
+              onClick={() => {
+                setTool("highlight");
+                setPaintFloss(null);
+              }}
+              title={t.highlight}
+            >
+              {t.highlight}
+            </button>
+            <button
+              type="button"
+              className={`tool-btn ${tool === "paint" ? "on" : ""}`}
+              disabled={!pattern}
+              onClick={() => {
+                setTool("paint");
+                setHighlight(null);
+                setPaintFloss((cur) => cur ?? PAINT_FLOSS[0]);
+              }}
+              title={t.paint}
+            >
+              {t.paint}
+            </button>
+            <button
+              type="button"
+              className={`tool-btn ${tool === "erase" ? "on" : ""}`}
+              disabled={!pattern}
+              onClick={() => {
+                setTool("erase");
+                setHighlight(null);
+                setPaintFloss(null);
+              }}
+              title={t.erase}
+            >
+              {t.erase}
+            </button>
+            <button
+              type="button"
               className="icon-btn"
               disabled={!pattern}
               onClick={exportPng}
@@ -412,14 +607,47 @@ export default function App() {
               <IconPrint />
             </button>
           </div>
+          {(tool === "paint" || tool === "erase") && pattern && (
+            <p className="tool-hint">{tool === "erase" ? t.eraseHint : t.paintHint}</p>
+          )}
           <div className="preview-wrap">
             {pattern ? (
-              <canvas ref={canvasRef} className="preview" aria-label={t.preview} />
+              <canvas
+                ref={canvasRef}
+                className={paintCursor}
+                aria-label={t.preview}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                onPointerCancel={onPointerUp}
+              />
             ) : (
               <p className="empty">{t.empty}</p>
             )}
           </div>
         </div>
+
+        {pattern && tool === "paint" && (
+          <div className="paint-palette">
+            <h3>{t.paintPalette}</h3>
+            <div className="swatch-row" role="list">
+              {PAINT_FLOSS.map((f) => (
+                <button
+                  key={f.code}
+                  type="button"
+                  role="listitem"
+                  className={`dot ${paintFloss?.code === f.code ? "on" : ""}`}
+                  style={{ background: f.hex }}
+                  title={`${f.code} · ${f.name}`}
+                  aria-label={`${f.code} ${f.name}`}
+                  onClick={() =>
+                    setPaintFloss((cur) => (cur && cur.code === f.code ? null : f))
+                  }
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         {pattern && (
           <div className="swatch-row" role="list">
@@ -428,11 +656,19 @@ export default function App() {
                 key={f.code + i}
                 type="button"
                 role="listitem"
-                className={`dot ${highlight === i ? "on" : ""}`}
+                className={`dot ${
+                  tool === "paint"
+                    ? paintFloss?.code === f.code
+                      ? "on"
+                      : ""
+                    : highlight === i
+                      ? "on"
+                      : ""
+                }`}
                 style={{ background: f.hex }}
                 title={`${f.code} · ${f.name} (${pattern.counts[i]})`}
                 aria-label={`${f.code} ${f.name}`}
-                onClick={() => toggleColor(i)}
+                onClick={() => selectLegendColor(i)}
               />
             ))}
           </div>
@@ -440,13 +676,27 @@ export default function App() {
 
         {pattern && (
           <div className="legend">
-            <h3>{t.legend}</h3>
+            <h3>
+              {t.legend}{" "}
+              <span className="legend-meta">
+                {pattern.width}×{pattern.height} · {pattern.width * pattern.height}{" "}
+                {t.cells}
+              </span>
+            </h3>
             <ul>
               {pattern.palette.map((f, i) => (
                 <li
                   key={f.code + i}
-                  className={highlight === i ? "on" : ""}
-                  onClick={() => toggleColor(i)}
+                  className={
+                    tool === "paint"
+                      ? paintFloss?.code === f.code
+                        ? "on"
+                        : ""
+                      : highlight === i
+                        ? "on"
+                        : ""
+                  }
+                  onClick={() => selectLegendColor(i)}
                 >
                   <span className="code">{f.code}</span>
                   <span className="swatch" style={{ background: f.hex }} />

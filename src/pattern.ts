@@ -1,1 +1,1 @@
-PLACEHOLDER_WILL_REPLACE
+file:///workspace/PuntoPixel/src/pattern.ts

@@ -47,3 +47,22 @@ export {
   EXAMPLES,
   printChartHtml,
 } from "./pattern_examples";
+
+export {
+  cleanupPattern,
+} from "./pattern_core";
+export {
+  fillRegion,
+  pickFlossAt,
+  applyPencil,
+  PatternHistory,
+} from "./editor_ops";
+export {
+  patternStats,
+  estimateFlossMeters,
+  exportPixelPng,
+  downloadCanvasPng,
+  exportPreviewPng,
+  exportPatternPdf,
+  PNG_SCALES,
+} from "./pattern_export";

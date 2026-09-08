@@ -1,4 +1,6 @@
 /** Built-in DMC-like stranded cotton palette (hex + code + name). */
+import { colorDistanceSq } from "./engine/color/distance";
+
 export type Floss = {
   code: string;
   name: string;
@@ -150,12 +152,13 @@ export const PALETTE: Floss[] = [
 
 const RGBS: RGB[] = PALETTE.map((f) => hexToRgb(f.hex));
 
+/** Nearest DMC floss by perceptual ΔE (Lab), not RGB Euclidean. */
 export function nearestFloss(r: number, g: number, b: number): Floss {
+  const target: RGB = [r, g, b];
   let best = 0;
   let bestD = Infinity;
   for (let i = 0; i < RGBS.length; i++) {
-    const [pr, pg, pb] = RGBS[i];
-    const d = (pr - r) * (pr - r) + (pg - g) * (pg - g) + (pb - b) * (pb - b);
+    const d = colorDistanceSq(target, RGBS[i]);
     if (d < bestD) {
       bestD = d;
       best = i;

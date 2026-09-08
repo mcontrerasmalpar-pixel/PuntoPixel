@@ -14,6 +14,9 @@ import {
   type SampleOptions,
 } from "./image/sampling";
 import type { CropMode, FitMode } from "./image/crop";
+import { quantizePixels, type PaletteMode } from "./engine/palette/auto";
+import { nearestIndexLab } from "./engine/color/distance";
+import { edgeImportanceMap } from "./engine/edge/sobel";
 
 export type Pattern = {
   width: number;
@@ -30,83 +33,6 @@ export const AIDA_RGB: RGB = [243, 230, 201];
 export const PAPER = "#F6E4DC";
 export const PAPER_PINK = "#F8E8E2";
 
-function dist2(a: RGB, b: RGB): number {
-  const dr = a[0] - b[0];
-  const dg = a[1] - b[1];
-  const db = a[2] - b[2];
-  return dr * dr + dg * dg + db * db;
-}
-
-function average(pixels: RGB[]): RGB {
-  if (pixels.length === 0) return [0, 0, 0];
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  for (const p of pixels) {
-    r += p[0];
-    g += p[1];
-    b += p[2];
-  }
-  const n = pixels.length;
-  return [(r / n) | 0, (g / n) | 0, (b / n) | 0];
-}
-
-function channelRange(pixels: RGB[], ch: 0 | 1 | 2): number {
-  let min = 255;
-  let max = 0;
-  for (const p of pixels) {
-    const v = p[ch];
-    if (v < min) min = v;
-    if (v > max) max = v;
-  }
-  return max - min;
-}
-
-/** Median-cut palette of k colors. */
-export function medianCut(pixels: RGB[], k: number): RGB[] {
-  if (pixels.length === 0) return [];
-  type Bucket = { pixels: RGB[] };
-  const buckets: Bucket[] = [{ pixels: pixels.slice() }];
-  while (buckets.length < k) {
-    let splitAt = 0;
-    let bestRange = -1;
-    let bestCh: 0 | 1 | 2 = 0;
-    for (let i = 0; i < buckets.length; i++) {
-      const px = buckets[i].pixels;
-      if (px.length < 2) continue;
-      for (const ch of [0, 1, 2] as const) {
-        const r = channelRange(px, ch);
-        if (r > bestRange) {
-          bestRange = r;
-          splitAt = i;
-          bestCh = ch;
-        }
-      }
-    }
-    if (bestRange <= 0) break;
-    const bucket = buckets[splitAt];
-    bucket.pixels.sort((a, b) => a[bestCh] - b[bestCh]);
-    const mid = bucket.pixels.length >> 1;
-    const left = bucket.pixels.slice(0, mid);
-    const right = bucket.pixels.slice(mid);
-    buckets.splice(splitAt, 1, { pixels: left }, { pixels: right });
-  }
-  return buckets.map((b) => average(b.pixels));
-}
-
-function nearestIndex(color: RGB, palette: RGB[]): number {
-  let best = 0;
-  let bestD = Infinity;
-  for (let i = 0; i < palette.length; i++) {
-    const d = dist2(color, palette[i]);
-    if (d < bestD) {
-      bestD = d;
-      best = i;
-    }
-  }
-  return best;
-}
-
 export const DIM_MIN = 8;
 export const DIM_MAX = 80;
 
@@ -117,6 +43,9 @@ export function clampDim(n: number): number {
 
 export type { ImageSettings, SampleMode, SampleOptions, BackgroundMode };
 export type { CropMode, FitMode };
+export type { PaletteMode };
+export { medianCut, buildAutoPalette } from "./engine/palette/auto";
+export { colorDistance } from "./engine/color/distance";
 
 /**
  * Sample image → target grid.
@@ -139,54 +68,54 @@ export function pixelsToPattern(
   height: number,
   pixels: RGB[],
   colorCount: number,
+  paletteMode: PaletteMode = "auto",
 ): Pattern {
-  const k = Math.max(2, Math.min(colorCount, pixels.length));
-  const reduced = medianCut(pixels, k);
-  const mapped: RGB[] = pixels.map((p) => reduced[nearestIndex(p, reduced)]);
+  const edgeMap = edgeImportanceMap(pixels, width, height);
+  const { palette: reduced } = quantizePixels(pixels, {
+    mode: paletteMode === "dmc" ? "auto" : paletteMode,
+    colorCount,
+    edgeMap,
+  });
+
+  // Map quantized colors → nearest DMC floss (perceptual ΔE)
   const flossList = reduced.map((c) => nearestFloss(c[0], c[1], c[2]));
   const unique: Floss[] = [];
-  const remap: number[] = [];
   for (const f of flossList) {
-    const found = unique.findIndex((u) => u.code === f.code);
-    if (found === -1) {
-      remap.push(unique.length);
-      unique.push(f);
-    } else {
-      remap.push(found);
-    }
+    if (!unique.some((u) => u.code === f.code)) unique.push(f);
   }
-  const cells = mapped.map((p) => {
-    const qi = nearestIndex(p, reduced);
-    return remap[qi];
+
+  // Assign each pixel to nearest unique floss in Lab space
+  const uniqueRgb: RGB[] = unique.map((f) => {
+    const n = parseInt(f.hex.replace("#", ""), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255] as RGB;
   });
+  const cells = pixels.map((p) => nearestIndexLab(p, uniqueRgb));
   const counts = new Array(unique.length).fill(0);
   for (const c of cells) counts[c]++;
   return { width, height, cells, palette: unique, counts };
 }
 
-/**
- * Full path: preprocess (crop/fit/contrast/background) → adaptive sample → quantize.
- * A vertical photo is no longer stretched into a square: fit defaults to "cover".
- */
 export function imageToPattern(
   img: HTMLImageElement | HTMLCanvasElement,
   width: number,
   height: number,
   colorCount: number,
-  settings?: ImageSettings,
+  settings?: ImageSettings & { paletteMode?: PaletteMode },
 ): Pattern {
   const w = clampDim(width);
   const h = clampDim(height);
+  const { paletteMode, ...imgSettings } = settings ?? {};
   const sampled = preprocessImage(img, w, h, {
     fit: "cover",
     sampleMode: "adaptive",
-    ...settings,
+    ...imgSettings,
   });
   return pixelsToPattern(
     sampled.width,
     sampled.height,
     sampled.pixels,
     colorCount,
+    paletteMode ?? "auto",
   );
 }
 

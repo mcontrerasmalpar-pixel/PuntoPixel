@@ -3,6 +3,17 @@ import {
   type RGB,
   nearestFloss,
 } from "./palette";
+import {
+  preprocessImage,
+  type ImageSettings,
+  type BackgroundMode,
+} from "./image/preprocess";
+import {
+  sampleImage as sampleImageCore,
+  type SampleMode,
+  type SampleOptions,
+} from "./image/sampling";
+import type { CropMode, FitMode } from "./image/crop";
 
 export type Pattern = {
   width: number;
@@ -104,39 +115,23 @@ export function clampDim(n: number): number {
   return Math.max(DIM_MIN, Math.min(DIM_MAX, Math.round(n)));
 }
 
+export type { ImageSettings, SampleMode, SampleOptions, BackgroundMode };
+export type { CropMode, FitMode };
+
+/**
+ * Sample image → target grid.
+ * Default mode is "adaptive" (area averaging when downsampling hard).
+ * Prefer imageToPattern / preprocessImage for the full pipeline.
+ */
 export function sampleImage(
   img: HTMLImageElement | HTMLCanvasElement,
   width: number,
   height: number,
+  options?: SampleOptions,
 ): { width: number; height: number; pixels: RGB[] } {
   const w = clampDim(width);
   const h = clampDim(height);
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) throw new Error("Canvas 2D not available");
-  ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(img, 0, 0, w, h);
-  const data = ctx.getImageData(0, 0, w, h).data;
-  const pixels: RGB[] = new Array(w * h);
-  for (let i = 0; i < pixels.length; i++) {
-    const o = i * 4;
-    const a = data[o + 3];
-    if (a < 20) {
-      pixels[i] = AIDA_RGB;
-    } else if (a < 255) {
-      const t = a / 255;
-      pixels[i] = [
-        (data[o] * t + AIDA_RGB[0] * (1 - t)) | 0,
-        (data[o + 1] * t + AIDA_RGB[1] * (1 - t)) | 0,
-        (data[o + 2] * t + AIDA_RGB[2] * (1 - t)) | 0,
-      ];
-    } else {
-      pixels[i] = [data[o], data[o + 1], data[o + 2]];
-    }
-  }
-  return { width: w, height: h, pixels };
+  return sampleImageCore(img, w, h, options ?? { mode: "adaptive" });
 }
 
 export function pixelsToPattern(
@@ -169,14 +164,30 @@ export function pixelsToPattern(
   return { width, height, cells, palette: unique, counts };
 }
 
+/**
+ * Full path: preprocess (crop/fit/contrast/background) → adaptive sample → quantize.
+ * A vertical photo is no longer stretched into a square: fit defaults to "cover".
+ */
 export function imageToPattern(
   img: HTMLImageElement | HTMLCanvasElement,
   width: number,
   height: number,
   colorCount: number,
+  settings?: ImageSettings,
 ): Pattern {
-  const sampled = sampleImage(img, width, height);
-  return pixelsToPattern(sampled.width, sampled.height, sampled.pixels, colorCount);
+  const w = clampDim(width);
+  const h = clampDim(height);
+  const sampled = preprocessImage(img, w, h, {
+    fit: "cover",
+    sampleMode: "adaptive",
+    ...settings,
+  });
+  return pixelsToPattern(
+    sampled.width,
+    sampled.height,
+    sampled.pixels,
+    colorCount,
+  );
 }
 
 /** Empty AIDA grid the user can paint cell-by-cell. */

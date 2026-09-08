@@ -17,6 +17,7 @@ import type { CropMode, FitMode } from "./image/crop";
 import { quantizePixels, type PaletteMode } from "./engine/palette/auto";
 import { nearestIndexLab } from "./engine/color/distance";
 import { edgeImportanceMap } from "./engine/edge/sobel";
+import { cleanupPattern } from "./engine/cleanup";
 
 export type Pattern = {
   width: number;
@@ -46,6 +47,7 @@ export type { CropMode, FitMode };
 export type { PaletteMode };
 export { medianCut, buildAutoPalette } from "./engine/palette/auto";
 export { colorDistance } from "./engine/color/distance";
+export { cleanupPattern } from "./engine/cleanup";
 
 /**
  * Sample image → target grid.
@@ -92,7 +94,8 @@ export function pixelsToPattern(
   const cells = pixels.map((p) => nearestIndexLab(p, uniqueRgb));
   const counts = new Array(unique.length).fill(0);
   for (const c of cells) counts[c]++;
-  return { width, height, cells, palette: unique, counts };
+  const raw: Pattern = { width, height, cells, palette: unique, counts };
+  return cleanupPattern(raw);
 }
 
 export function imageToPattern(
